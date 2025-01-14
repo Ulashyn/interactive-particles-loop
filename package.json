@@ -1,0 +1,22 @@
+{
+  "name": "vite-threejs",
+  "version": "1.0.0",
+  "description": "interactive particles loop with three.js",
+  "scripts": {
+    "start": "vite",
+    "build": "vite build",
+    "serve": "vite preview",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Ulashyn Oleksandr",
+  "license": "ISC",
+  "dependencies": {
+    "gsap": "^3.12.5",
+    "lil-gui": "^0.20.0",
+    "three": "^0.172.0",
+    "vite-plugin-glsl": "^0.2.2"
+  },
+  "devDependencies": {
+    "vite": "^6.0.7"
+  }
+}
