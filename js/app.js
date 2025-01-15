@@ -21,6 +21,9 @@ export default class Sketch {
     this.renderer.setSize(this.width, this.height);
     this.renderer.clearColor(0x000000, 1);
 
+    this.raycaster = new THREE.Raycaster();
+    this.pointer = new THREE.Vector2();
+
     this.container.appendChild(this.renderer.domElement);
 
     this.camera = new THREE.PerspectiveCamera(
@@ -30,19 +33,19 @@ export default class Sketch {
       1000
     );
 
-    // let frustumSize = 10;
-    // let aspect = this.width / this.height;
-    // this.camera = new THREE.OrthographicCamera(
-    //   frustumSize * aspect / -2,
-    //   frustumSize * aspect / 2,
-    //   frustumSize / 2,
-    //   frustumSize / -2,
-    //   -1000,
-    //   1000
-    // );
+    let frustumSize = 4;
+    let aspect = this.width / this.height;
+    this.camera = new THREE.OrthographicCamera(
+      frustumSize * aspect / -2,
+      frustumSize * aspect / 2,
+      frustumSize / 2,
+      frustumSize / -2,
+      -1000,
+      1000
+    );
 
-    this.camera.position.set(0, 0, 2);
-    this.controls = new OrbitControls(this.camera, this.renderer.domElement);
+    this.camera.position.set(0, 0, 4);
+    // this.controls = new OrbitControls(this.camera, this.renderer.domElement);
     this.time = 0;
 
     const THREE_PATH = `https://unpkg.com/three@0.${REVISION}.x`;
@@ -51,6 +54,7 @@ export default class Sketch {
     this.gltfLoader.setDRACOLoader(this.dracoLoader);
 
     this.isPlaying = true;
+    this.setupEvents();
     this.setupFBO();
     this.addObjects();
     this.resize();
@@ -59,6 +63,22 @@ export default class Sketch {
     // this.setUpSettings();
   }
 
+  setupEvents() {
+    this.dummy = new THREE.Mesh(
+      new THREE.PlaneGeometry(100, 100),
+      new THREE.MeshBasicMaterial()
+    )
+    document.addEventListener('pointermove', (e) => {
+      this.pointer.x = (e.clientX / this.width) * 2 - 1;
+      this.pointer.y = -(e.clientY / this.height) * 2 + 1;
+      this.raycaster.setFromCamera(this.pointer, this.camera);
+      let intersects = this.raycaster.intersectObject(this.dummy);
+      if (intersects.length > 0) {
+        let { x, y } = intersects[0].point;
+        this.fboMaterial.uniforms.uMouse.value = new THREE.Vector2(x, y);
+      }
+    });
+  }
   setUpSettings() {
     this.settings = {
       progress: 0,
@@ -85,13 +105,13 @@ export default class Sketch {
   }
 
   setupFBO() {
-    this.size = 128;
+    this.size = 256;
     this.fbo = this.getRennderTarget();
     this.fbo1 = this.getRennderTarget();
 
     this.fboScene = new THREE.Scene();
     this.fboCamera = new THREE.OrthographicCamera(-1,1,1,-1,-1,1);
-    this.fboCamera.position.set(0,0,0.5);
+    this.fboCamera.position.set(0,0,0.4);
     this.fboCamera.lookAt(0,0,0);
     let geometry = new THREE.PlaneGeometry(2,2);
 
@@ -117,11 +137,31 @@ export default class Sketch {
     this.fboMaterial = new THREE.ShaderMaterial({
       uniforms: {
         uPositions: { value: this.fboTexture },
+        uInfo: { value: null },
+        uMouse: { value: new THREE.Vector2(0, 0) },
         time: { value: 0 },
       },
       vertexShader: simVertex,
       fragmentShader: simFragment,
     });
+
+    this.infoArray = new Float32Array(this.size * this.size * 4);
+
+    for (let i = 0; i < this.size; i++) {
+      for (let j = 0; j < this.size; j++) {
+        let index = (i + j * this.size) * 4;
+        this.infoArray[index + 0] = 0.5 + Math.random();
+        this.infoArray[index + 1] = 0.5 + Math.random();
+        this.infoArray[index + 2] = 1.;
+        this.infoArray[index + 3] = 1.;
+      }
+    }
+
+    this.info = new THREE.DataTexture(this.infoArray, this.size, this.size, THREE.RGBAFormat, THREE.FloatType);
+    this.info.magFilter = THREE.NearestFilter;
+    this.info.minFilter = THREE.NearestFilter;
+    this.info.needsUpdate = true;
+    this.fboMaterial.uniforms.uInfo.value = this.info;
 
     this.fboMesh = new THREE.Mesh(geometry, this.fboMaterial);
     this.fboScene.add(this.fboMesh);
@@ -152,7 +192,7 @@ export default class Sketch {
         resolution: { value: new THREE.Vector4() },
       },
       // fireframe: true,
-      // transparent: true,
+      transparent: true,
       vertexShader: vertex,
       fragmentShader: fragment,
     });
